@@ -2,10 +2,14 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import {UsersModule} from "./users/users.module";
 import {AppController} from "./app.controller";
+import {ConfigModule} from "@nestjs/config";
 
 @Module({
   imports: [
-      MongooseModule.forRoot('mongodb://localhost:27017'),
+      ConfigModule.forRoot({
+          envFilePath: `.${process.env.NODE_ENV}.env`
+      }),
+      MongooseModule.forRoot(process.env.DB_HOST + process.env.DB_PORT),
       UsersModule
   ],
   controllers: [AppController]
