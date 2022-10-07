@@ -3,6 +3,11 @@ import {IdType} from "../schemas/id.type";
 
 export class UserInfo {
 
+    constructor(id: string, idType: IdType) {
+        this.id = id
+        this.idType = idType
+    }
+
     @ApiProperty({ example: 'user@gmail.com' })
     id: string
 

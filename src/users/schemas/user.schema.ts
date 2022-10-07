@@ -1,6 +1,7 @@
 import {Prop, Schema, SchemaFactory} from "@nestjs/mongoose";
 import {ApiProperty} from "@nestjs/swagger";
 import {IdType} from "./id.type";
+import * as mongoose from "mongoose";
 
 export type UserDocument = UserEntity & Document
 
@@ -8,21 +9,21 @@ export type UserDocument = UserEntity & Document
 export class UserEntity {
 
     constructor(id: string, password: string, idType: IdType) {
-        this.id = id
+        this._id = id
         this.password = password
         this.idType = idType
     }
 
     @ApiProperty({ example: 'user@gmail.com' })
-    @Prop({unique: true})
-    id: string;
+    @Prop({ unique: true, type: mongoose.Types.ObjectId})
+    _id: string;
 
     @ApiProperty({ example: '123456789' })
-    @Prop()
+    @Prop({ required: true })
     password: string;
 
     @ApiProperty({ example: IdType.Email })
-    @Prop()
+    @Prop({ required: true })
     idType: IdType;
 }
 export const UserSchema = SchemaFactory.createForClass(UserEntity)

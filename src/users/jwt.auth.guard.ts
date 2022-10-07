@@ -1,12 +1,11 @@
 import {ExecutionContext, Injectable, UnauthorizedException} from "@nestjs/common";
 import {JwtService} from "@nestjs/jwt";
-import {Observable} from "rxjs";
 
 @Injectable()
 export class JwtAuthGuard {
     constructor(private readonly _jwtService: JwtService) {}
 
-    public canActivate (context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
+    public canActivate (context: ExecutionContext): boolean {
         const request = context.switchToHttp().getRequest()
 
         try {
