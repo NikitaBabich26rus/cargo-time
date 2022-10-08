@@ -18,12 +18,12 @@ export class AuthRepository {
         return token.save()
     }
 
-    async deleteTokens(tokenFilterQuery: FilterQuery<TokenEntity>) {
-        this.tokenModel.deleteMany(tokenFilterQuery)
+    async getTokens(tokenFilterQuery: FilterQuery<TokenEntity>): Promise<TokenEntity[]> {
+        return this.tokenModel.find(tokenFilterQuery);
     }
 
     async deleteToken(token: TokenEntity) {
-        this.tokenModel.deleteOne(token)
+        await this.tokenModel.deleteOne({ token: token.token })
     }
 
     async getToken(tokenFilterQuery: FilterQuery<TokenEntity>): Promise<TokenEntity> {
