@@ -15,7 +15,7 @@ export class UserEntity {
     }
 
     @ApiProperty({ example: 'user@gmail.com' })
-    @Prop({ unique: true, type: mongoose.Types.ObjectId})
+    @Prop({ unique: true, type: String})
     _id: string;
 
     @ApiProperty({ example: '123456789' })

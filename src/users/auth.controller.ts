@@ -1,24 +1,26 @@
-import {Body, Controller, Get, Headers, HttpException, HttpStatus, Post, UseGuards} from '@nestjs/common';
-import {UsersRepository} from "./users.repository";
+import {Body, Controller, Get, Headers, HttpException, HttpStatus, Param, Post, UseGuards} from '@nestjs/common';
+import {AuthRepository} from "./auth.repository";
 import {UserEntity} from "./schemas/user.schema";
 import {UserDto} from "./dto/user.dto";
 import {ApiResponse} from "@nestjs/swagger";
 import {JwtService} from "@nestjs/jwt";
 import * as bcrypt from "bcryptjs";
-import {getIdType} from "./schemas/id.type";
+import {getIdType, IdType} from "./schemas/id.type";
 import {UserInfo} from "./dto/user.info";
 import {JwtAuthGuard} from "./jwt.auth.guard";
+import {TokenEntity} from "./schemas/token.schema";
+import {ResponseDto} from "./dto/response.dto";
 
 const ping = require('ping');
 
-@Controller('api/')
+@Controller('api')
 export class AuthController {
-    constructor(private readonly _userRepository: UsersRepository,
+    constructor(private readonly authRepository: AuthRepository,
                 private readonly _jwtService: JwtService) {}
 
     @Post('sign-in/')
     public async signIn(@Body() loginUserDto: UserDto) {
-        const user = await this._userRepository.getUser({ _id: loginUserDto.id })
+        const user = await this.authRepository.getUser({ _id: loginUserDto.id })
 
         if (!user) {
             throw new HttpException('The user with this login is not registered', HttpStatus.BAD_REQUEST)
@@ -30,7 +32,7 @@ export class AuthController {
             throw new HttpException('Login or password error', HttpStatus.BAD_REQUEST)
         }
 
-        return this.createJwtToken(user)
+        return await this.extendToken(user._id, user.idType)
     }
 
     @ApiResponse({status: 200, type: UserEntity})
@@ -42,7 +44,7 @@ export class AuthController {
             throw new HttpException('Email or phone number validation error', HttpStatus.BAD_REQUEST)
         }
 
-        const registered = await this._userRepository.getUser({ _id: createUserDto.id })
+        const registered = await this.authRepository.getUser({ _id: createUserDto.id })
 
         if (registered) {
             throw new HttpException('Email or phone number is used', HttpStatus.BAD_REQUEST)
@@ -50,43 +52,70 @@ export class AuthController {
 
         const hashPassword = await bcrypt.hash(createUserDto.password, 8)
         const userEntity = new UserEntity(createUserDto.id, hashPassword, idType)
-        const user = await this._userRepository.createUser(userEntity)
+        const user = await this.authRepository.createUser(userEntity)
 
-        return this.createJwtToken(user)
+        return await this.extendToken(user._id, user.idType)
     }
 
-    @ApiResponse({status: 200})
+    @ApiResponse({status: 200, type: ResponseDto })
     @UseGuards(JwtAuthGuard)
     @Get('info')
-    public async getInfo(@Headers() headers): Promise<UserInfo> {
+    public async getInfo(@Headers() headers): Promise<ResponseDto> {
         const token = this.getJwtToken(headers.authorization)
+        const userId = token['id']
+        const idType = token['idType']
+        const tokenString = await this.extendToken(userId, idType)
 
-        return new UserInfo(token['id'], token['idType'])
+        return new ResponseDto(new UserInfo(userId, idType), tokenString)
     }
 
-    @ApiResponse({status: 200, type: Number})
+    @ApiResponse({ status: 200, type: ResponseDto })
     @UseGuards(JwtAuthGuard)
     @Get('latency')
-    public async getLatency(): Promise<string> {
+    public async getLatency(@Headers() headers): Promise<ResponseDto> {
+        const token = this.getJwtToken(headers.authorization)
+        const userId = token['id']
+        const idType = token['idType']
+        const tokenString = await this.extendToken(userId, idType)
         const host = 'google.com'
 
         try {
             const result = await ping.promise.probe(host)
-            return result.time + ' ms'
+            return new ResponseDto(result.time + ' ms', tokenString)
         }
         catch (e) {
             throw new HttpException('google.com is not available', HttpStatus.OK)
         }
     }
 
-    @Get('logout')
+    @ApiResponse({status: 200, type: String})
+    @Get('logout:all')
     @UseGuards(JwtAuthGuard)
-    public logout(): string {
-        return "Hello"
+    public async logout(@Headers() headers, @Param('all') all: boolean) {
+        if (all) {
+            console.log(all)
+
+            const token = this.getJwtToken(headers.authorization)
+            const userId = token['id']
+            await this.authRepository.deleteTokens({ user: userId })
+
+            return
+        }
+
+        const tokenEntity = await this.authRepository.getToken({ token: headers.authorization })
+        await this.authRepository.deleteToken(tokenEntity)
     }
 
-    private createJwtToken(user: UserEntity) {
-        const payload = {id: user._id, idType: user.idType}
+    private async extendToken(userId: string, idType: IdType) {
+        const token = this.createJwtToken(userId, idType)
+        const tokenEntity = new TokenEntity(userId, token.token)
+        await this.authRepository.saveToken(tokenEntity)
+
+        return token.token
+    }
+
+    private createJwtToken(userId: string, idType: IdType) {
+        const payload = {id: userId, idType: idType}
 
         return {
             token: this._jwtService.sign(payload)
