@@ -88,12 +88,12 @@ export class AuthController {
         }
     }
 
-    @ApiResponse({status: 200, type: String})
+    @ApiResponse({status: 200 })
     @Get('logout:all')
     @UseGuards(JwtAuthGuard)
     public async logout(@Headers() headers, @Param('all') all: boolean) {
-        console.log(all)
-        if (all) {
+        // I don't know why if you write if(all) it is true and for all=false and for all=true
+        if (all == true) {
             const token = this.getJwtToken(headers.authorization)
             const userId = token['id']
             const tokens = await this.authRepository.getTokens({ user: userId })
@@ -105,7 +105,8 @@ export class AuthController {
             return
         }
 
-        const tokenEntity = await this.authRepository.getToken({ token: headers.authorization })
+        const token = headers.authorization.split(' ')[1]
+        const tokenEntity = await this.authRepository.getToken({ token: token })
         await this.authRepository.deleteToken(tokenEntity)
     }
 
